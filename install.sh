@@ -1,8 +1,8 @@
 #!/bin/bash
 # Author:  yeho <lj2007331 AT gmail.com>
-# BLOG:  https://blog.linuxeye.cn
+# BLOG:  https://linuxeye.com
 #
-# Notes: OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+
+# Notes: OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+
 #
 # Project home page:
 #       https://oneinstack.com
@@ -12,7 +12,7 @@ export PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
 clear
 printf "
 #######################################################################
-#       OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+      #
+#       OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+      #
 #       For more information please visit https://oneinstack.com      #
 #######################################################################
 "
@@ -49,7 +49,7 @@ dbinstallmethod=1
 
 version() {
   echo "version: 2.0"
-  echo "updated date: 2019-01-17"
+  echo "updated date: 2019-01-25"
 }
 
 Show_Help() {
@@ -62,11 +62,12 @@ Show_Help() {
   --apache_mode_option [1-2]  Apache2.4 mode, 1(default): php-fpm, 2: mod_php
   --apache_mpm_option [1-3]   Apache2.4 MPM, 1(default): event, 2: prefork, 3: worker
   --php_option [1-8]          Install PHP version
-  --php_vn [53~73]            Install another version of php in OneinStack
+  --mphp_ver [53~73]          Install another PHP version (PATH: ${php_install_dir}\${mphp_ver})
+  --mphp_addons               Only install another PHP addons
   --phpcache_option [1-4]     Install PHP opcode cache, default: 1 opcache
   --php_extensions [ext name] Install PHP extensions, include zendguardloader,ioncube,
-                              sourceguardian,imagick,gmagick,fileinfo,imap,ldap,phalcon,
-                              redis,memcached,memcache,mongodb,swoole,xdebug
+                              sourceguardian,imagick,gmagick,fileinfo,imap,ldap,calendar,phalcon,
+                              yaf,yar,redis,memcached,memcache,mongodb,swoole,xdebug
   --tomcat_option [1-4]       Install Tomcat version
   --jdk_option [1-4]          Install JDK version
   --db_option [1-15]          Install DB version
@@ -84,7 +85,7 @@ Show_Help() {
   "
 }
 ARG_NUM=$#
-TEMP=`getopt -o hvV --long help,version,nginx_option:,apache_option:,apache_mode_option:,apache_mpm_option:,php_option:,php_vn:,phpcache_option:,php_extensions:,tomcat_option:,jdk_option:,db_option:,dbrootpwd:,dbinstallmethod:,pureftpd,redis,memcached,phpmyadmin,hhvm,python,ssh_port:,iptables,reboot -- "$@" 2>/dev/null`
+TEMP=`getopt -o hvV --long help,version,nginx_option:,apache_option:,apache_mode_option:,apache_mpm_option:,php_option:,mphp_ver:,mphp_addons,phpcache_option:,php_extensions:,tomcat_option:,jdk_option:,db_option:,dbrootpwd:,dbinstallmethod:,pureftpd,redis,memcached,phpmyadmin,hhvm,python,ssh_port:,iptables,reboot -- "$@" 2>/dev/null`
 [ $? != 0 ] && echo "${CWARNING}ERROR: unknown argument! ${CEND}" && Show_Help && exit 1
 eval set -- "${TEMP}"
 while :; do
@@ -121,10 +122,12 @@ while :; do
       [[ ! ${php_option} =~ ^[1-8]$ ]] && { echo "${CWARNING}php_option input error! Please only input number 1~8${CEND}"; exit 1; }
       [ -e "${php_install_dir}/bin/phpize" ] && { echo "${CWARNING}PHP already installed! ${CEND}"; unset php_option; }
       ;;
-    --php_vn)
-      php_vn=$2; mphp_flag=y; shift 2
-      [[ "${php_vn}" =~ ^5[3-6]$|^7[0-3]$ ]] && { echo "${CWARNING}php_vn input error! Please only input number 53~73${CEND}"; exit 1; }
-      [ -e "${php_install_dir}${php_vn}/bin/phpize" ] && { echo "${CWARNING}PHP${php_vn} already installed! ${CEND}"; unset php_vn mphp_flag; }
+    --mphp_ver)
+      mphp_ver=$2; mphp_flag=y; shift 2
+      [[ ! "${mphp_ver}" =~ ^5[3-6]$|^7[0-3]$ ]] && { echo "${CWARNING}mphp_ver input error! Please only input number 53~73${CEND}"; exit 1; }
+      ;;
+    --mphp_addons)
+      mphp_addons_flag=y; shift 1
       ;;
     --phpcache_option)
       phpcache_option=$2; shift 2
@@ -139,7 +142,10 @@ while :; do
       [ -n "`echo ${php_extensions} | grep -w fileinfo`" ] && pecl_fileinfo=1
       [ -n "`echo ${php_extensions} | grep -w imap`" ] && pecl_imap=1
       [ -n "`echo ${php_extensions} | grep -w ldap`" ] && pecl_ldap=1
+      [ -n "`echo ${php_extensions} | grep -w calendar`" ] && pecl_calendar=1
       [ -n "`echo ${php_extensions} | grep -w phalcon`" ] && pecl_phalcon=1
+      [ -n "`echo ${php_extensions} | grep -w yaf`" ] && pecl_yaf=1
+      [ -n "`echo ${php_extensions} | grep -w yar`" ] && pecl_yar=1
       [ -n "`echo ${php_extensions} | grep -w redis`" ] && pecl_redis=1
       [ -n "`echo ${php_extensions} | grep -w memcached`" ] && pecl_memcached=1
       [ -n "`echo ${php_extensions} | grep -w memcache`" ] && pecl_memcache=1
@@ -218,10 +224,6 @@ while :; do
       ;;
   esac
 done
-
-[ ! -e "${wwwroot_dir}/default" ] && mkdir -p ${wwwroot_dir}/default
-[ ! -e "${wwwlogs_dir}" ] && mkdir -p ${wwwlogs_dir}
-[ -d /data ] && chmod 755 /data
 
 # Use default SSH port 22. If you use another SSH port on your server
 if [ -e "/etc/ssh/sshd_config" ]; then
@@ -415,9 +417,9 @@ if [ ${ARG_NUM} == 0 ]; then
           echo -e "\t${CMSG} 2${CEND}. Install MySQL-5.7"
           echo -e "\t${CMSG} 3${CEND}. Install MySQL-5.6"
           echo -e "\t${CMSG} 4${CEND}. Install MySQL-5.5"
-          echo -e "\t${CMSG} 5${CEND}. Install MariaDB-10.3"
-          echo -e "\t${CMSG} 6${CEND}. Install MariaDB-10.2"
-          echo -e "\t${CMSG} 7${CEND}. Install MariaDB-10.1"
+          echo -e "\t${CMSG} 5${CEND}. Install MariaDB-10.4"
+          echo -e "\t${CMSG} 6${CEND}. Install MariaDB-10.3"
+          echo -e "\t${CMSG} 7${CEND}. Install MariaDB-10.2"
           echo -e "\t${CMSG} 8${CEND}. Install MariaDB-5.5"
           echo -e "\t${CMSG} 9${CEND}. Install Percona-8.0"
           echo -e "\t${CMSG}10${CEND}. Install Percona-5.7"
@@ -428,7 +430,7 @@ if [ ${ARG_NUM} == 0 ]; then
           echo -e "\t${CMSG}15${CEND}. Install MongoDB"
           read -e -p "Please input a number:(Default 2 press Enter) " db_option
           db_option=${db_option:-2}
-          [[ "${db_option}" =~ ^[1,5,9]$|^15$ ]] && [ "${OS_BIT}" == '32' ] && { echo "${CWARNING}By not supporting 32-bit! ${CEND}"; continue; }
+          [[ "${db_option}" =~ ^[1,5,6,9]$|^15$ ]] && [ "${OS_BIT}" == '32' ] && { echo "${CWARNING}By not supporting 32-bit! ${CEND}"; continue; }
           if [[ "${db_option}" =~ ^[1-9]$|^1[0-5]$ ]]; then
             if [ "${db_option}" == '14' ]; then
               [ -e "${pgsql_install_dir}/bin/psql" ] && { echo "${CWARNING}PostgreSQL already installed! ${CEND}"; unset db_option; break; }
@@ -473,7 +475,7 @@ if [ ${ARG_NUM} == 0 ]; then
                 if [[ ! ${dbinstallmethod} =~ ^[1-2]$ ]]; then
                   echo "${CWARNING}input error! Please only input number 1~2${CEND}"
                 else
-                  [ "${db_option}" == '5' -a "${LIBC_YN}" != '0' -a "${dbinstallmethod}" == '1' ] && { echo "${CWARNING}MariaDB-10.3 binaries require GLIBC 2.14 or higher! ${CEND}"; continue; }
+                  [[ "${db_option}" =~ ^[5-6]$ ]] && [ "${LIBC_YN}" != '0' -a "${dbinstallmethod}" == '1' ] && { echo "${CWARNING}MariaDB-10.3+ binaries require GLIBC 2.14 or higher! ${CEND}"; continue; }
                   break
                 fi
               done
@@ -550,7 +552,7 @@ if [ ${ARG_NUM} == 0 ]; then
 
   # check php ver
   if [ -e "${php_install_dir}/bin/phpize" ]; then
-    PHP_detail_ver=$(${php_install_dir}/bin/php -r 'echo PHP_VERSION;')
+    PHP_detail_ver=$(${php_install_dir}/bin/php-config --version)
     PHP_main_ver=${PHP_detail_ver%.*}
   fi
 
@@ -663,24 +665,25 @@ if [ ${ARG_NUM} == 0 ]; then
       echo -e "\t${CMSG} 7${CEND}. Install imap"
       echo -e "\t${CMSG} 8${CEND}. Install ldap"
       echo -e "\t${CMSG} 9${CEND}. Install phalcon(PHP>=5.5)"
-      echo -e "\t${CMSG}10${CEND}. Install redis"
-      echo -e "\t${CMSG}11${CEND}. Install memcached"
-      echo -e "\t${CMSG}12${CEND}. Install memcache"
-      echo -e "\t${CMSG}13${CEND}. Install mongodb"
-      echo -e "\t${CMSG}14${CEND}. Install swoole"
-      echo -e "\t${CMSG}15${CEND}. Install xdebug(PHP>=5.5)"
-      read -e -p "Please input numbers:(Default '4 10 11' press Enter) " phpext_option
-      phpext_option=${phpext_option:-'4 10 11'}
+      echo -e "\t${CMSG}10${CEND}. Install yaf(PHP>=7.0)"
+      echo -e "\t${CMSG}11${CEND}. Install redis"
+      echo -e "\t${CMSG}12${CEND}. Install memcached"
+      echo -e "\t${CMSG}13${CEND}. Install memcache"
+      echo -e "\t${CMSG}14${CEND}. Install mongodb"
+      echo -e "\t${CMSG}15${CEND}. Install swoole"
+      echo -e "\t${CMSG}16${CEND}. Install xdebug(PHP>=5.5)"
+      read -e -p "Please input numbers:(Default '4 11 12' press Enter) " phpext_option
+      phpext_option=${phpext_option:-'4 11 12'}
       [ "${phpext_option}" == '0' ] && break
       array_phpext=(${phpext_option})
-      array_all=(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15)
+      array_all=(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
       for v in ${array_phpext[@]}
       do
         [ -z "`echo ${array_all[@]} | grep -w ${v}`" ] && phpext_flag=1
       done
       if [ "${phpext_flag}" == '1' ]; then
         unset phpext_flag
-        echo; echo "${CWARNING}input error! Please only input number 4 10 11 and so on${CEND}"; echo
+        echo; echo "${CWARNING}input error! Please only input number 4 11 12 and so on${CEND}"; echo
         continue
       else
         [ -n "`echo ${array_phpext[@]} | grep -w 1`" ] && pecl_zendguardloader=1
@@ -692,12 +695,13 @@ if [ ${ARG_NUM} == 0 ]; then
         [ -n "`echo ${array_phpext[@]} | grep -w 7`" ] && pecl_imap=1
         [ -n "`echo ${array_phpext[@]} | grep -w 8`" ] && pecl_ldap=1
         [ -n "`echo ${array_phpext[@]} | grep -w 9`" ] && pecl_phalcon=1
-        [ -n "`echo ${array_phpext[@]} | grep -w 10`" ] && pecl_redis=1
-        [ -n "`echo ${array_phpext[@]} | grep -w 11`" ] && pecl_memcached=1
-        [ -n "`echo ${array_phpext[@]} | grep -w 12`" ] && pecl_memcache=1
-        [ -n "`echo ${array_phpext[@]} | grep -w 13`" ] && pecl_mongodb=1
-        [ -n "`echo ${array_phpext[@]} | grep -w 14`" ] && pecl_swoole=1
-        [ -n "`echo ${array_phpext[@]} | grep -w 15`" ] && pecl_xdebug=1
+        [ -n "`echo ${array_phpext[@]} | grep -w 10`" ] && pecl_yaf=1
+        [ -n "`echo ${array_phpext[@]} | grep -w 11`" ] && pecl_redis=1
+        [ -n "`echo ${array_phpext[@]} | grep -w 12`" ] && pecl_memcached=1
+        [ -n "`echo ${array_phpext[@]} | grep -w 13`" ] && pecl_memcache=1
+        [ -n "`echo ${array_phpext[@]} | grep -w 14`" ] && pecl_mongodb=1
+        [ -n "`echo ${array_phpext[@]} | grep -w 15`" ] && pecl_swoole=1
+        [ -n "`echo ${array_phpext[@]} | grep -w 16`" ] && pecl_xdebug=1
         break
       fi
     done
@@ -771,8 +775,15 @@ if [ ${ARG_NUM} == 0 ]; then
   done
 fi
 
+if [[ ${nginx_option} =~ ^[1-3]$ ]] || [[ ${apache_option} =~ ^[1-2]$ ]] || [[ ${tomcat_option} =~ ^[1-4]$ ]]; then
+  [ ! -d ${wwwroot_dir}/default ] && mkdir -p ${wwwroot_dir}/default
+  [ ! -d ${wwwlogs_dir} ] && mkdir -p ${wwwlogs_dir}
+fi
+[ -d /data ] && chmod 755 /data
+
 # install wget gcc curl python
 if [ ! -e ~/.oneinstack ]; then
+  downloadDepsSrc=1
   [ "${PM}" == 'apt-get' ] && apt-get -y update
   [ "${PM}" == 'yum' ] && yum clean all
   ${PM} -y install wget gcc curl python
@@ -785,7 +796,6 @@ IPADDR_COUNTRY=$(./include/get_ipaddr_state.py ${PUBLIC_IPADDR})
 
 # Check download source packages
 . ./include/check_download.sh
-downloadDepsSrc=1
 checkDownload 2>&1 | tee -a ${oneinstack_dir}/install.log
 
 # del openssl for jcloud
@@ -802,7 +812,6 @@ if [ ! -e ~/.oneinstack ]; then
     "CentOS")
       installDepsCentOS 2>&1 | tee ${oneinstack_dir}/install.log
       . include/init_CentOS.sh 2>&1 | tee -a ${oneinstack_dir}/install.log
-      [ -n "$(gcc --version | head -n1 | grep '4\.1\.')" ] && export CC="gcc44" CXX="g++44"
       ;;
     "Debian")
       installDepsDebian 2>&1 | tee ${oneinstack_dir}/install.log
@@ -827,7 +836,7 @@ if [[ ${nginx_option} =~ ^[1-3]$ ]] || [[ "${db_option}" =~ ^[1-9]$|^1[0-3]$ ]];
 fi
 
 # openSSL
-if [[ ${tomcat_option} =~ ^[1-4]$ ]] || [[ ${apache_option} =~ ^[1-2]$ ]] || [[ ${php_option} =~ ^[1-8]$ ]]; then
+if [[ ${tomcat_option} =~ ^[1-4]$ ]] || [[ ${apache_option} =~ ^[1-2]$ ]] || [[ ${php_option} =~ ^[1-8]$ ]] || [[ "${mphp_ver}" =~ ^5[3-6]$|^7[0-3]$ ]]; then
   . include/openssl.sh
   Install_openSSL | tee -a ${oneinstack_dir}/install.log
 fi
@@ -835,7 +844,7 @@ fi
 # Database
 case "${db_option}" in
   1)
-    [ "${OS}" == 'CentOS' -a "${CentOS_ver}" != '7' ] && dbinstallmethod=1
+    [ "${OS}" == 'CentOS' -a "${CentOS_ver}" != '7' ] && dbinstallmethod=1 && checkDownload
     . include/mysql-8.0.sh
     Install_MySQL80 2>&1 | tee -a ${oneinstack_dir}/install.log
     ;;
@@ -852,16 +861,16 @@ case "${db_option}" in
     Install_MySQL55 2>&1 | tee -a ${oneinstack_dir}/install.log
     ;;
   5)
+    . include/mariadb-10.4.sh
+    Install_MariaDB104 2>&1 | tee -a ${oneinstack_dir}/install.log
+    ;;
+  6)
     . include/mariadb-10.3.sh
     Install_MariaDB103 2>&1 | tee -a ${oneinstack_dir}/install.log
     ;;
-  6)
+  7)
     . include/mariadb-10.2.sh
     Install_MariaDB102 2>&1 | tee -a ${oneinstack_dir}/install.log
-    ;;
-  7)
-    . include/mariadb-10.1.sh
-    Install_MariaDB101 2>&1 | tee -a ${oneinstack_dir}/install.log
     ;;
   8)
     . include/mariadb-5.5.sh
@@ -959,122 +968,151 @@ case "${php_option}" in
     ;;
 esac
 
-# PHP opcode cache
-case "${phpcache_option}" in
-  1)
-    . include/zendopcache.sh
-    Install_ZendOPcache 2>&1 | tee -a ${oneinstack_dir}/install.log
-    ;;
-  2)
-    . include/xcache.sh
-    Install_XCache 2>&1 | tee -a ${oneinstack_dir}/install.log
-    ;;
-  3)
-    . include/apcu.sh
-    Install_APCU 2>&1 | tee -a ${oneinstack_dir}/install.log
-    ;;
-  4)
-    . include/eaccelerator.sh
-    Install_eAccelerator 2>&1 | tee -a ${oneinstack_dir}/install.log
-    ;;
-esac
+PHP_addons() {
+  # PHP opcode cache
+  case "${phpcache_option}" in
+    1)
+      . include/zendopcache.sh
+      Install_ZendOPcache 2>&1 | tee -a ${oneinstack_dir}/install.log
+      ;;
+    2)
+      . include/xcache.sh
+      Install_XCache 2>&1 | tee -a ${oneinstack_dir}/install.log
+      ;;
+    3)
+      . include/apcu.sh
+      Install_APCU 2>&1 | tee -a ${oneinstack_dir}/install.log
+      ;;
+    4)
+      . include/eaccelerator.sh
+      Install_eAccelerator 2>&1 | tee -a ${oneinstack_dir}/install.log
+      ;;
+  esac
 
-# ZendGuardLoader
-if [ "${pecl_zendguardloader}" == '1' ]; then
-  . include/ZendGuardLoader.sh
-  Install_ZendGuardLoader 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # ZendGuardLoader
+  if [ "${pecl_zendguardloader}" == '1' ]; then
+    . include/ZendGuardLoader.sh
+    Install_ZendGuardLoader 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# ioncube
-if [ "${pecl_ioncube}" == '1' ]; then
-  . include/ioncube.sh
-  Install_ionCube 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # ioncube
+  if [ "${pecl_ioncube}" == '1' ]; then
+    . include/ioncube.sh
+    Install_ionCube 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# SourceGuardian
-if [ "${pecl_sourceguardian}" == '1' ]; then
-  . include/sourceguardian.sh
-  Install_SourceGuardian 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # SourceGuardian
+  if [ "${pecl_sourceguardian}" == '1' ]; then
+    . include/sourceguardian.sh
+    Install_SourceGuardian 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# imagick
-if [ "${pecl_imagick}" == '1' ]; then
-  . include/ImageMagick.sh
-  Install_ImageMagick 2>&1 | tee -a ${oneinstack_dir}/install.log
-  Install_pecl_imagick 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # imagick
+  if [ "${pecl_imagick}" == '1' ]; then
+    . include/ImageMagick.sh
+    Install_ImageMagick 2>&1 | tee -a ${oneinstack_dir}/install.log
+    Install_pecl_imagick 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# gmagick
-if [ "${pecl_gmagick}" == '1' ]; then
-  . include/GraphicsMagick.sh
-  Install_GraphicsMagick 2>&1 | tee -a ${oneinstack_dir}/install.log
-  Install_pecl_gmagick 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # gmagick
+  if [ "${pecl_gmagick}" == '1' ]; then
+    . include/GraphicsMagick.sh
+    Install_GraphicsMagick 2>&1 | tee -a ${oneinstack_dir}/install.log
+    Install_pecl_gmagick 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# fileinfo
-if [ "${pecl_fileinfo}" == '1' ]; then
-  . include/pecl_fileinfo.sh
-  Install_pecl_fileinfo 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # fileinfo
+  if [ "${pecl_fileinfo}" == '1' ]; then
+    . include/pecl_fileinfo.sh
+    Install_pecl_fileinfo 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# imap
-if [ "${pecl_imap}" == '1' ]; then
-  . include/pecl_imap.sh
-  Install_pecl_imap 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # imap
+  if [ "${pecl_imap}" == '1' ]; then
+    . include/pecl_imap.sh
+    Install_pecl_imap 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# ldap
-if [ "${pecl_ldap}" == '1' ]; then
-  . include/pecl_ldap.sh
-  Install_pecl_ldap 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # ldap
+  if [ "${pecl_ldap}" == '1' ]; then
+    . include/pecl_ldap.sh
+    Install_pecl_ldap 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# phalcon
-if [ "${pecl_phalcon}" == '1' ]; then
-  . include/pecl_phalcon.sh
-  Install_pecl_phalcon 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # calendar
+  if [ "${pecl_calendar}" == '1' ]; then
+    . include/pecl_calendar.sh
+    Install_pecl_calendar 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# pecl_memcached
-if [ "${pecl_memcached}" == '1' ]; then
-  . include/memcached.sh
-  Install_pecl_memcached 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # phalcon
+  if [ "${pecl_phalcon}" == '1' ]; then
+    . include/pecl_phalcon.sh
+    Install_pecl_phalcon 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# pecl_memcache
-if [ "${pecl_memcache}" == '1' ]; then
-  . include/memcached.sh
-  Install_pecl_memcache 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # yaf
+  if [ "${pecl_yaf}" == '1' ]; then
+    . include/pecl_yaf.sh
+    Install_pecl_yaf 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# pecl_redis
-if [ "${pecl_redis}" == '1' ]; then
-  . include/redis.sh
-  Install_pecl_redis 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # yar
+  if [ "${pecl_yar}" == '1' ]; then
+    . include/pecl_yar.sh
+    Install_pecl_yar 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# pecl_mongodb
-if [ "${pecl_mongodb}" == '1' ]; then
-  . include/pecl_mongodb.sh
-  Install_pecl_mongodb 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # pecl_memcached
+  if [ "${pecl_memcached}" == '1' ]; then
+    . include/memcached.sh
+    Install_pecl_memcached 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# swoole
-if [ "${pecl_swoole}" == '1' ]; then
-  . include/pecl_swoole.sh
-  Install_pecl_swoole 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # pecl_memcache
+  if [ "${pecl_memcache}" == '1' ]; then
+    . include/memcached.sh
+    Install_pecl_memcache 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# xdebug
-if [ "${pecl_xdebug}" == '1' ]; then
-  . include/pecl_xdebug.sh
-  Install_pecl_xdebug 2>&1 | tee -a ${oneinstack_dir}/install.log
-fi
+  # pecl_redis
+  if [ "${pecl_redis}" == '1' ]; then
+    . include/redis.sh
+    Install_pecl_redis 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
 
-# pecl_pgsql
-if [ -e "${pgsql_install_dir}/bin/psql" ]; then
-  . include/pecl_pgsql.sh
-  Install_pecl_pgsql 2>&1 | tee -a ${oneinstack_dir}/install.log
+  # pecl_mongodb
+  if [ "${pecl_mongodb}" == '1' ]; then
+    . include/pecl_mongodb.sh
+    Install_pecl_mongodb 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
+
+  # swoole
+  if [ "${pecl_swoole}" == '1' ]; then
+    . include/pecl_swoole.sh
+    Install_pecl_swoole 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
+
+  # xdebug
+  if [ "${pecl_xdebug}" == '1' ]; then
+    . include/pecl_xdebug.sh
+    Install_pecl_xdebug 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
+
+  # pecl_pgsql
+  if [ -e "${pgsql_install_dir}/bin/psql" ]; then
+    . include/pecl_pgsql.sh
+    Install_pecl_pgsql 2>&1 | tee -a ${oneinstack_dir}/install.log
+  fi
+}
+
+[ "${mphp_addons_flag}" != 'y' ] && PHP_addons
+
+if [ "${mphp_flag}" == 'y' ]; then
+  . include/mphp.sh
+  Install_MPHP 2>&1 | tee -a ${oneinstack_dir}/install.log
+  php_install_dir=${php_install_dir}${mphp_ver}
+  PHP_addons
 fi
 
 # JDK
@@ -1141,11 +1179,9 @@ if [ "${memcached_flag}" == 'y' ]; then
 fi
 
 # index example
-if [ ! -e "${wwwroot_dir}/default/index.html" ]; then
-  if [[ ${nginx_option} =~ ^[1-3]$ ]] || [[ ${apache_option} =~ ^[1-2]$ ]] || [[ ${tomcat_option} =~ ^[1-4]$ ]]; then
-    . include/demo.sh
-    DEMO 2>&1 | tee -a ${oneinstack_dir}/install.log
-  fi
+if [ -d "${wwwroot_dir}/default" ]; then
+  . include/demo.sh
+  DEMO 2>&1 | tee -a ${oneinstack_dir}/install.log
 fi
 
 # get web_install_dir and db_install_dir
@@ -1165,10 +1201,11 @@ fi
 
 # Starting DB
 [ -d "/etc/mysql" ] && /bin/mv /etc/mysql{,_bk}
-[ -d "${db_install_dir}/support-files" ] && service mysqld start
+[ -d "${db_install_dir}/support-files" ] && [ -z "`ps -ef | grep mysqld_safe | grep -v grep`" ] && service mysqld start
 
 # reload php
-[ -e "${php_install_dir}/sbin/php-fpm" ] && service php-fpm reload
+[ -e "${php_install_dir}/sbin/php-fpm" ] && { [ -e "/bin/systemctl" ] && systemctl reload php-fpm || service php-fpm reload; }
+[ -n "${mphp_ver}" -a -e "${php_install_dir}${mphp_ver}/sbin/php-fpm" ] && { [ -e "/bin/systemctl" ] && systemctl reload php${mphp_ver}-fpm || service php${mphp_ver}-fpm reload; }
 [ -e "${apache_install_dir}/bin/apachectl" ] && ${apache_install_dir}/bin/apachectl -k graceful
 
 endTime=`date +%s`

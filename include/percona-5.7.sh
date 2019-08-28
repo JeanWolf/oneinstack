@@ -1,8 +1,8 @@
 #!/bin/bash
 # Author:  yeho <lj2007331 AT gmail.com>
-# BLOG:  https://blog.linuxeye.cn
+# BLOG:  https://linuxeye.com
 #
-# Notes: OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+
+# Notes: OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+
 #
 # Project home page:
 #       https://oneinstack.com
@@ -77,7 +77,6 @@ Install_Percona57() {
 [client]
 port = 3306
 socket = /tmp/mysql.sock
-default-character-set = utf8mb4
 
 [mysql]
 prompt="Percona [\\d]> "

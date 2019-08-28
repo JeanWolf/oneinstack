@@ -1,8 +1,8 @@
 #!/bin/bash
 # Author:  yeho <lj2007331 AT gmail.com>
-# BLOG:  https://blog.linuxeye.cn
+# BLOG:  https://linuxeye.com
 #
-# Notes: OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+
+# Notes: OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+
 #
 # Project home page:
 #       https://oneinstack.com
@@ -12,7 +12,7 @@ export PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
 clear
 printf "
 #######################################################################
-#       OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+      #
+#       OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+      #
 #       For more information please visit https://oneinstack.com      #
 #######################################################################
 "
@@ -46,6 +46,7 @@ Show_Help() {
   --help, -h                  Show this help message
   --quiet, -q                 quiet operation
   --list, -l                  List Virtualhost
+  --mphp_ver [53~73]          Use another PHP version (PATH: /usr/local/php${mphp_ver})
   --add                       Add Virtualhost
   --delete, --del             Delete Virtualhost
   --httponly                  Use HTTP Only
@@ -56,7 +57,7 @@ Show_Help() {
 }
 
 ARG_NUM=$#
-TEMP=`getopt -o hql --long help,quiet,list,add,delete,del,httponly,selfsigned,letsencrypt,dnsapi -- "$@" 2>/dev/null`
+TEMP=`getopt -o hql --long help,quiet,list,mphp_ver:,add,delete,del,httponly,selfsigned,letsencrypt,dnsapi -- "$@" 2>/dev/null`
 [ $? != 0 ] && echo "${CWARNING}ERROR: unknown argument! ${CEND}" && Show_Help && exit 1
 eval set -- "${TEMP}"
 while :; do
@@ -70,6 +71,10 @@ while :; do
       ;;
     -l|--list)
       list_flag=y; shift 1
+      ;;
+    --mphp_ver)
+      mphp_ver=$2; mphp_flag=y; shift 2
+      [[ ! "${mphp_ver}" =~ ^5[3-6]$|^7[0-3]$ ]] && { echo "${CWARNING}mphp_ver input error! Please only input number 53~73${CEND}"; unset mphp_ver mphp_flag; }
       ;;
     --add)
       add_flag=y; shift 1
@@ -243,7 +248,7 @@ If you enter '.', the field will be left blank.
     read -e -p "Organizational Unit Name (eg, section) [IT Dept.]: " SELFSIGNEDSSL_OU
     SELFSIGNEDSSL_OU=${SELFSIGNEDSSL_OU:-"IT Dept."}
 
-    openssl req -new -newkey rsa:2048 -sha256 -nodes -out ${PATH_SSL}/${domain}.csr -keyout ${PATH_SSL}/${domain}.key -subj "/C=${SELFSIGNEDSSL_C}/ST=${SELFSIGNEDSSL_ST}/L=${SELFSIGNEDSSL_L}/O=${SELFSIGNEDSSL_O}/OU=${SELFSIGNEDSSL_OU}/CN=${domain}" > /dev/null 2>&1
+    openssl req -utf8 -new -newkey rsa:2048 -sha256 -nodes -out ${PATH_SSL}/${domain}.csr -keyout ${PATH_SSL}/${domain}.key -subj "/C=${SELFSIGNEDSSL_C}/ST=${SELFSIGNEDSSL_ST}/L=${SELFSIGNEDSSL_L}/O=${SELFSIGNEDSSL_O}/OU=${SELFSIGNEDSSL_OU}/CN=${domain}" > /dev/null 2>&1
     openssl x509 -req -days 36500 -sha256 -in ${PATH_SSL}/${domain}.csr -signkey ${PATH_SSL}/${domain}.key -out ${PATH_SSL}/${domain}.crt > /dev/null 2>&1
   elif [ "${Domian_Mode}" == '3' -o "${dnsapi_flag}" == 'y' ]; then
     if [ "${moredomain}" == "*.${domain}" -o "${dnsapi_flag}" == 'y' ]; then
@@ -270,7 +275,7 @@ If you enter '.', the field will be left blank.
         fi
       done
       [ "${moredomainame_flag}" == 'y' ] && moredomainame_D="$(for D in ${moredomainame}; do echo -d ${D}; done)"
-      ~/.acme.sh/acme.sh --issue --dns dns_${DNS_PRO} -d ${domain} ${moredomainame_D}
+      ~/.acme.sh/acme.sh --force --issue --dns dns_${DNS_PRO} -d ${domain} ${moredomainame_D}
     else
       if [ "${nginx_ssl_flag}" == 'y' ]; then
         [ ! -d ${web_install_dir}/conf/vhost ] && mkdir ${web_install_dir}/conf/vhost
@@ -307,7 +312,7 @@ EOF
       done
       rm -f ${vhostdir}/${auth_file}
       [ "${moredomainame_flag}" == 'y' ] && moredomainame_D="$(for D in ${moredomainame}; do echo -d ${D}; done)"
-      ~/.acme.sh/acme.sh --issue -d ${domain} ${moredomainame_D} -w ${vhostdir}
+      ~/.acme.sh/acme.sh --force --issue -d ${domain} ${moredomainame_D} -w ${vhostdir}
     fi
     if [ -s ~/.acme.sh/${domain}/fullchain.cer ]; then
       [ -e "${PATH_SSL}/${domain}.crt" ] && rm -f ${PATH_SSL}/${domain}.{crt,key}
@@ -320,7 +325,7 @@ EOF
       elif [ ! -e "${web_install_dir}/sbin/nginx" -a -e "${apache_install_dir}/bin/httpd" ]; then
         Command="${Apache_cmd}"
       fi
-      ~/.acme.sh/acme.sh --install-cert -d ${domain} --fullchain-file ${PATH_SSL}/${domain}.crt --key-file ${PATH_SSL}/${domain}.key --reloadcmd "${Command}" > /dev/null
+      ~/.acme.sh/acme.sh --force --install-cert -d ${domain} --fullchain-file ${PATH_SSL}/${domain}.crt --key-file ${PATH_SSL}/${domain}.key --reloadcmd "${Command}" > /dev/null
     else
       echo "${CFAILURE}Error: Create Let's Encrypt SSL Certificate failed! ${CEND}"
       [ -e "${web_install_dir}/conf/vhost/${domain}.conf" ] && rm -f ${web_install_dir}/conf/vhost/${domain}.conf
@@ -359,6 +364,55 @@ What Are You Doing?
       fi
     done
   fi
+
+  #Multiple_PHP
+  if [ $(ls /dev/shm/php*-cgi.sock 2> /dev/null | wc -l) -ge 2 ]; then
+    if [ "${mphp_flag}" != 'y' ]; then
+      PHP_detail_ver=`${php_install_dir}/bin/php-config --version`
+      PHP_main_ver=${PHP_detail_ver%.*}
+      while :; do echo
+        echo 'Please select a version of the PHP:'
+        echo -e "\t${CMSG}1${CEND}. PHP ${PHP_main_ver} (default)"
+        [ -e "/dev/shm/php53-cgi.sock" ] && echo -e "\t${CMSG}2${CEND}. PHP 5.3"
+        [ -e "/dev/shm/php54-cgi.sock" ] && echo -e "\t${CMSG}3${CEND}. PHP 5.4"
+        [ -e "/dev/shm/php55-cgi.sock" ] && echo -e "\t${CMSG}4${CEND}. PHP 5.5"
+        [ -e "/dev/shm/php56-cgi.sock" ] && echo -e "\t${CMSG}5${CEND}. PHP 5.6"
+        [ -e "/dev/shm/php70-cgi.sock" ] && echo -e "\t${CMSG}6${CEND}. PHP 7.0"
+        [ -e "/dev/shm/php71-cgi.sock" ] && echo -e "\t${CMSG}7${CEND}. PHP 7.1"
+        [ -e "/dev/shm/php72-cgi.sock" ] && echo -e "\t${CMSG}8${CEND}. PHP 7.2"
+        [ -e "/dev/shm/php73-cgi.sock" ] && echo -e "\t${CMSG}9${CEND}. PHP 7.3"
+        read -e -p "Please input a number:(Default 1 press Enter) " php_option
+        php_option=${php_option:-1}
+        if [[ ! ${php_option} =~ ^[1-9]$ ]]; then
+          echo "${CWARNING}input error! Please only input number 1~9${CEND}"
+        else
+          break
+        fi
+      done
+    fi
+    [ "${php_option}" == '2' ] && mphp_ver=53
+    [ "${php_option}" == '3' ] && mphp_ver=54
+    [ "${php_option}" == '4' ] && mphp_ver=55
+    [ "${php_option}" == '5' ] && mphp_ver=56
+    [ "${php_option}" == '6' ] && mphp_ver=70
+    [ "${php_option}" == '7' ] && mphp_ver=71
+    [ "${php_option}" == '8' ] && mphp_ver=72
+    [ "${php_option}" == '9' ] && mphp_ver=73
+    [ ! -e "/dev/shm/php${mphp_ver}-cgi.sock" ] && unset mphp_ver
+  fi
+
+  case "${NGX_FLAG}" in
+    "php")
+      NGX_CONF=$(echo -e "location ~ [^/]\.php(/|$) {\n    #fastcgi_pass remote_php_ip:9000;\n    fastcgi_pass unix:/dev/shm/php${mphp_ver}-cgi.sock;\n    fastcgi_index index.php;\n    include fastcgi.conf;\n  }")
+      ;;
+    "java")
+      NGX_CONF=$(echo -e "location ~ {\n    proxy_pass http://127.0.0.1:8080;\n    include proxy.conf;\n  }")
+      ;;
+    "hhvm")
+      NGX_CONF=$(echo -e "location ~ .*\.(php|php5)?$ {\n    fastcgi_pass unix:/var/log/hhvm/sock;\n    fastcgi_index index.php;\n    fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;\n    include fastcgi_params;\n  }")
+      ;;
+  esac
+
   if [ "${Domian_Mode}" == '3' -o "${dnsapi_flag}" == 'y' ] && [ ! -e ~/.acme.sh/acme.sh ]; then
     pushd ${oneinstack_dir}/src > /dev/null
     [ ! -e acme.sh-master.tar.gz ] && wget -qc http://mirrors.linuxeye.com/oneinstack/src/acme.sh-master.tar.gz
@@ -529,7 +583,7 @@ Nginx_rewrite() {
     echo
     echo "Please input the rewrite of programme :"
     echo "${CMSG}wordpress${CEND},${CMSG}opencart${CEND},${CMSG}magento2${CEND},${CMSG}drupal${CEND},${CMSG}joomla${CEND},${CMSG}codeigniter${CEND},${CMSG}laravel${CEND}"
-    echo "${CMSG}thinkphp${CEND},${CMSG}pathinfo${CEND},${CMSG}discuz${CEND},${CMSG}typecho${CEND},${CMSG}ecshop${CEND},${CMSG}nextcloud${CEND} rewrite was exist."
+    echo "${CMSG}thinkphp${CEND},${CMSG}pathinfo${CEND},${CMSG}discuz${CEND},${CMSG}typecho${CEND},${CMSG}ecshop${CEND},${CMSG}nextcloud${CEND},${CMSG}zblog${CEND} rewrite was exist."
     read -e -p "(Default rewrite: other): " rewrite
     if [ "${rewrite}" == "" ]; then
       rewrite="other"
@@ -621,7 +675,7 @@ EOF
 
   printf "
 #######################################################################
-#       OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+      #
+#       OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+      #
 #       For more information please visit https://oneinstack.com      #
 #######################################################################
 "
@@ -648,7 +702,7 @@ EOF
 
   printf "
 #######################################################################
-#       OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+      #
+#       OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+      #
 #       For more information please visit https://oneinstack.com      #
 #######################################################################
 "
@@ -691,6 +745,7 @@ EOF
   [ "${rewrite}" == 'pathinfo' ] && sed -i '/pathinfo.conf;$/d' ${web_install_dir}/conf/vhost/${domain}.conf
   if [ "${rewrite}" == 'magento2' -a -e "config/${rewrite}.conf" ]; then
     /bin/cp config/${rewrite}.conf ${web_install_dir}/conf/vhost/${domain}.conf
+    sed -i "s@/dev/shm/php-cgi.sock@/dev/shm/php${mphp_ver}-cgi.sock@g" ${web_install_dir}/conf/vhost/${domain}.conf
     sed -i "s@^  set \$MAGE_ROOT.*;@  set \$MAGE_ROOT ${vhostdir};@" ${web_install_dir}/conf/vhost/${domain}.conf
     sed -i "s@^  server_name.*;@  server_name ${domain}${moredomainame};@" ${web_install_dir}/conf/vhost/${domain}.conf
     sed -i "s@^  server_name.*;@&\n  ${Nginx_log}@" ${web_install_dir}/conf/vhost/${domain}.conf
@@ -738,7 +793,7 @@ EOF
 
   printf "
 #######################################################################
-#       OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+      #
+#       OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+      #
 #       For more information please visit https://oneinstack.com      #
 #######################################################################
 "
@@ -829,7 +884,7 @@ EOF
 
   printf "
 #######################################################################
-#       OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+      #
+#       OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+      #
 #       For more information please visit https://oneinstack.com      #
 #######################################################################
 "
@@ -929,7 +984,7 @@ EOF
 
   printf "
 #######################################################################
-#       OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+      #
+#       OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+      #
 #       For more information please visit https://oneinstack.com      #
 #######################################################################
 "
@@ -1016,6 +1071,7 @@ Del_NGX_Vhost() {
                 rm -rf ${Directory}
               fi
               echo
+              [ -d ~/.acme.sh/${domain} ] && ~/.acme.sh/acme.sh --force --remove -d ${domain} > /dev/null 2>&1
               echo "${CMSG}Domain: ${domain} has been deleted.${CEND}"
               echo
             else
@@ -1067,6 +1123,7 @@ Del_Apache_Vhost() {
 		fi
                 rm -rf ${Directory}
               fi
+              [ -d ~/.acme.sh/${domain} ] && ~/.acme.sh/acme.sh --force --remove -d ${domain} > /dev/null 2>&1
               echo "${CSUCCESS}Domain: ${domain} has been deleted.${CEND}"
             else
               echo "${CWARNING}Virtualhost: ${domain} was not exist! ${CEND}"

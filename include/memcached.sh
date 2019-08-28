@@ -1,8 +1,8 @@
 #!/bin/bash
 # Author:  yeho <lj2007331 AT gmail.com>
-# BLOG:  https://blog.linuxeye.cn
+# BLOG:  https://linuxeye.com
 #
-# Notes: OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+
+# Notes: OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+
 #
 # Project home page:
 #       https://oneinstack.com
@@ -17,8 +17,7 @@ Install_memcached_server() {
   tar xzf memcached-${memcached_ver}.tar.gz
   pushd memcached-${memcached_ver} > /dev/null
   [ ! -d "${memcached_install_dir}" ] && mkdir -p ${memcached_install_dir}
-  [ "${PM}" == 'yum' ] && libevent_arg='--with-libevent=/usr/local'
-  ./configure --prefix=${memcached_install_dir} ${libevent_arg}
+  ./configure --prefix=${memcached_install_dir}
   make -j ${THREAD} && make install
   popd > /dev/null
   if [ -f "${memcached_install_dir}/bin/memcached" ]; then
@@ -46,7 +45,7 @@ Install_pecl_memcache() {
   if [ -e "${php_install_dir}/bin/phpize" ]; then
     pushd ${oneinstack_dir}/src > /dev/null
     phpExtensionDir=$(${php_install_dir}/bin/php-config --extension-dir)
-    PHP_detail_ver=$(${php_install_dir}/bin/php -r 'echo PHP_VERSION;')
+    PHP_detail_ver=$(${php_install_dir}/bin/php-config --version)
     PHP_main_ver=${PHP_detail_ver%.*}
     if [[ "${PHP_main_ver}" =~ ^7.[0-3]$ ]]; then
       #git clone https://github.com/websupport-sk/pecl-memcache.git
@@ -87,7 +86,7 @@ Install_pecl_memcached() {
     popd > /dev/null
     rm -rf libmemcached-${libmemcached_ver}
 
-    if [ "$(${php_install_dir}/bin/php -r 'echo PHP_VERSION;' | awk -F. '{print $1}')" == '7' ]; then
+    if [ "$(${php_install_dir}/bin/php-config --version | awk -F. '{print $1}')" == '7' ]; then
       tar xzf memcached-${pecl_memcached_ver}.tgz
       pushd memcached-${pecl_memcached_ver} > /dev/null
     else

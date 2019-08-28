@@ -1,8 +1,8 @@
 #!/bin/bash
 # Author:  yeho <lj2007331 AT gmail.com>
-# BLOG:  https://blog.linuxeye.cn
+# BLOG:  https://linuxeye.com
 #
-# Notes: OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+
+# Notes: OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+
 #
 # Project home page:
 #       https://oneinstack.com
@@ -27,8 +27,9 @@ alias grep='grep --color'
 alias egrep='egrep --color'
 alias fgrep='fgrep --color'
 EOF
+[[ "$(lsb_release -is)" =~ ^EulerOS$ ]] && sed -i '/HISTTIMEFORMAT=/d' /etc/profile.d/oneinstack.sh
 
-[ -z "$(grep ^'PROMPT_COMMAND=' /etc/bashrc)" ] && cat >> /etc/bashrc << EOF
+[[ ! "$(lsb_release -is)" =~ ^EulerOS$ ]] && [ -z "$(grep ^'PROMPT_COMMAND=' /etc/bashrc)" ] && cat >> /etc/bashrc << EOF
 PROMPT_COMMAND='{ msg=\$(history 1 | { read x y; echo \$y; });logger "[euid=\$(whoami)]":\$(who am i):[\`pwd\`]"\$msg"; }'
 EOF
 
@@ -97,11 +98,7 @@ net.netfilter.nf_conntrack_tcp_timeout_established = 3600
 EOF
 sysctl -p
 
-if [ "${CentOS_ver}" == '5' ]; then
-  sed -i 's@^[3-6]:2345:respawn@#&@g' /etc/inittab
-  sed -i 's@^ca::ctrlaltdel@#&@' /etc/inittab
-  sed -i 's@LANG=.*$@LANG="en_US.UTF-8"@g' /etc/sysconfig/i18n
-elif [ "${CentOS_ver}" == '6' ]; then
+if [ "${CentOS_ver}" == '6' ]; then
   sed -i 's@^ACTIVE_CONSOLES.*@ACTIVE_CONSOLES=/dev/tty[1-2]@' /etc/sysconfig/init
   sed -i 's@^start@#start@' /etc/init/control-alt-delete.conf
   sed -i 's@LANG=.*$@LANG="en_US.UTF-8"@g' /etc/sysconfig/i18n
