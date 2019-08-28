@@ -1,8 +1,8 @@
 #!/bin/bash
 # Author:  yeho <lj2007331 AT gmail.com>
-# BLOG:  https://blog.linuxeye.cn
+# BLOG:  https://linuxeye.com
 #
-# Notes: OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+
+# Notes: OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+
 #
 # Project home page:
 #       https://oneinstack.com
@@ -16,8 +16,6 @@ Install_Nginx() {
   tar xzf pcre-${pcre_ver}.tar.gz
   tar xzf nginx-${nginx_ver}.tar.gz
   tar xzf openssl-${openssl11_ver}.tar.gz
-  [ "${Fedora_ver}" == '28' ] && patch -d nginx-${nginx_ver} -p1 < 0001-unix-ngx_user-Apply-fix-for-really-old-bug-in-glibc-.patch
-  patch -d nginx-${nginx_ver} -p0 < nginx-auto-cc-gcc.patch
   pushd nginx-${nginx_ver} > /dev/null
   # Modify Nginx version
   #sed -i 's@#define NGINX_VERSION.*$@#define NGINX_VERSION      "1.2"@' src/core/nginx.h
@@ -54,7 +52,7 @@ Install_Nginx() {
   fi
 
   mv ${nginx_install_dir}/conf/nginx.conf{,_bk}
-  if [[ ${apache_option} =~ ^[1-2]$ ]] || [ -e "${apache_install_dir}/bin/apachectl" ]; then
+  if [[ ${apache_option} =~ ^[1-2]$ ]] || [ -e "${apache_install_dir}/bin/httpd" ]; then
     /bin/cp ../config/nginx_apache.conf ${nginx_install_dir}/conf/nginx.conf
   elif { [[ ${tomcat_option} =~ ^[1-4]$ ]] || [ -e "${tomcat_install_dir}/conf/server.xml" ]; } && { [[ ! ${php_option} =~ ^[1-8]$ ]] && [ ! -e "${php_install_dir}/bin/php" ]; }; then
     /bin/cp ../config/nginx_tomcat.conf ${nginx_install_dir}/conf/nginx.conf

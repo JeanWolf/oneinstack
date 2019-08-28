@@ -1,8 +1,8 @@
 #!/bin/bash
 # Author:  yeho <lj2007331 AT gmail.com>
-# BLOG:  https://blog.linuxeye.cn
+# BLOG:  https://linuxeye.com
 #
-# Notes: OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+
+# Notes: OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+
 #
 # Project home page:
 #       https://oneinstack.com
@@ -38,6 +38,7 @@ Install_MySQL80() {
     -DWITH_EMBEDDED_SERVER=1 \
     -DENABLE_DTRACE=0 \
     -DENABLED_LOCAL_INFILE=1 \
+    -DFORCE_INSOURCE_BUILD=1 \
     -DDEFAULT_CHARSET=utf8mb4 \
     -DEXTRA_CHARSETS=all
     make -j ${THREAD}
@@ -73,7 +74,6 @@ Install_MySQL80() {
 [client]
 port = 3306
 socket = /tmp/mysql.sock
-default-character-set = utf8mb4
 
 [mysql]
 prompt="MySQL [\\d]> "

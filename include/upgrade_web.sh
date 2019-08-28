@@ -1,8 +1,8 @@
 #!/bin/bash
 # Author:  yeho <lj2007331 AT gmail.com>
-# BLOG:  https://blog.linuxeye.cn
+# BLOG:  https://linuxeye.com
 #
-# Notes: OneinStack for CentOS/RedHat 6+ Debian 7+ and Ubuntu 12+
+# Notes: OneinStack for CentOS/RedHat 6+ Debian 8+ and Ubuntu 14+
 #
 # Project home page:
 #       https://oneinstack.com
@@ -45,8 +45,6 @@ Upgrade_Nginx() {
       char=`get_char`
     fi
     tar xzf nginx-${NEW_nginx_ver}.tar.gz
-    [ "${Fedora_ver}" == '28' ] && patch -d nginx-${NEW_nginx_ver} -p1 < 0001-unix-ngx_user-Apply-fix-for-really-old-bug-in-glibc-.patch
-    patch -d nginx-${NEW_nginx_ver} -p0 < nginx-auto-cc-gcc.patch
     pushd nginx-${NEW_nginx_ver}
     make clean
     sed -i 's@CFLAGS="$CFLAGS -g"@#CFLAGS="$CFLAGS -g"@' auto/cc/gcc # close debug
@@ -79,7 +77,7 @@ Upgrade_Tengine() {
   [ ! -e "${tengine_install_dir}/sbin/nginx" ] && echo "${CWARNING}Tengine is not installed on your system! ${CEND}" && exit 1
   OLD_tengine_ver_tmp=`${tengine_install_dir}/sbin/nginx -v 2>&1`
   OLD_tengine_ver="`echo ${OLD_tengine_ver_tmp#*/} | awk '{print $1}'`"
-  Latest_tengine_ver=`curl --connect-timeout 2 -m 3 -s http://tengine.taobao.org/changelog.html | grep -oE "[0-9]\.[0-9]\.[0-9]+" | head -1`
+  Latest_tengine_ver=`curl --connect-timeout 2 -m 3 -s http://tengine.taobao.org/changelog.html | grep -v generator | grep -oE "[0-9]\.[0-9]\.[0-9]+" | head -1`
   echo
   echo "Current Tengine Version: ${CMSG}${OLD_tengine_ver}${CEND}"
   while :; do echo
@@ -88,9 +86,9 @@ Upgrade_Tengine() {
     if [ "${NEW_tengine_ver}" != "${OLD_tengine_ver}" ]; then
       [ ! -e "tengine-${NEW_tengine_ver}.tar.gz" ] && wget --no-check-certificate -c http://tengine.taobao.org/download/tengine-${NEW_tengine_ver}.tar.gz > /dev/null 2>&1
       if [ -e "tengine-${NEW_tengine_ver}.tar.gz" ]; then
-        src_url=https://www.openssl.org/source/openssl-${openssl_ver}.tar.gz && Download_src
+        src_url=https://www.openssl.org/source/openssl-${openssl11_ver}.tar.gz && Download_src
         src_url=http://mirrors.linuxeye.com/oneinstack/src/pcre-${pcre_ver}.tar.gz && Download_src
-        tar xzf openssl-${openssl_ver}.tar.gz
+        tar xzf openssl-${openssl11_ver}.tar.gz
         tar xzf pcre-${pcre_ver}.tar.gz
         echo "Download [${CMSG}tengine-${NEW_tengine_ver}.tar.gz${CEND}] successfully! "
         break
@@ -110,25 +108,20 @@ Upgrade_Tengine() {
       char=`get_char`
     fi
     tar xzf tengine-${NEW_tengine_ver}.tar.gz
-    [ "${Fedora_ver}" == '28' ] && patch -d tengine-${tengine_ver} -p1 < 0001-unix-ngx_user-Apply-fix-for-really-old-bug-in-glibc-.patch
-    patch -d tengine-${tengine_ver} -p0 < nginx-auto-cc-gcc.patch
     pushd tengine-${NEW_tengine_ver}
     make clean
-    sed -i 's@CFLAGS="$CFLAGS -g"@#CFLAGS="$CFLAGS -g"@' auto/cc/gcc # close debug
     ${tengine_install_dir}/sbin/nginx -V &> $$
     tengine_configure_args_tmp=`cat $$ | grep 'configure arguments:' | awk -F: '{print $2}'`
     rm -rf $$
-    tengine_configure_args=`echo ${tengine_configure_args_tmp} | sed "s@--with-openssl=../openssl-\w.\w.\w\+ @--with-openssl=../openssl-${openssl_ver} @" | sed "s@--with-pcre=../pcre-\w.\w\+ @--with-pcre=../pcre-${pcre_ver} @"`
+    tengine_configure_args=`echo ${tengine_configure_args_tmp} | sed "s@--with-openssl=../openssl-\w.\w.\w\+ @--with-openssl=../openssl-${openssl11_ver} @" | sed "s@--with-pcre=../pcre-\w.\w\+ @--with-pcre=../pcre-${pcre_ver} @"`
     export LUAJIT_LIB=/usr/local/lib
     export LUAJIT_INC=/usr/local/include/luajit-2.1
     ./configure ${tengine_configure_args}
     make
     if [ -f "objs/nginx" ]; then
       /bin/mv ${tengine_install_dir}/sbin/nginx{,`date +%m%d`}
-      /bin/mv ${tengine_install_dir}/sbin/dso_tool{,`date +%m%d`}
       /bin/mv ${tengine_install_dir}/modules{,`date +%m%d`}
       /bin/cp objs/nginx ${tengine_install_dir}/sbin/nginx
-      /bin/cp objs/dso_tool ${tengine_install_dir}/sbin/dso_tool
       chmod +x ${tengine_install_dir}/sbin/*
       make install
       kill -USR2 `cat /var/run/nginx.pid`
@@ -158,9 +151,9 @@ Upgrade_OpenResty() {
     if [ "${NEW_openresy_ver}" != "${OLD_openresy_ver}" ]; then
       [ ! -e "openresty-${NEW_openresy_ver}.tar.gz" ] && wget --no-check-certificate -c https://openresty.org/download/openresty-${NEW_openresy_ver}.tar.gz > /dev/null 2>&1
       if [ -e "openresty-${NEW_openresy_ver}.tar.gz" ]; then
-        src_url=https://www.openssl.org/source/openssl-${openssl_ver}.tar.gz && Download_src
+        src_url=https://www.openssl.org/source/openssl-${openssl11_ver}.tar.gz && Download_src
         src_url=http://mirrors.linuxeye.com/oneinstack/src/pcre-${pcre_ver}.tar.gz && Download_src
-        tar xzf openssl-${openssl_ver}.tar.gz
+        tar xzf openssl-${openssl11_ver}.tar.gz
         tar xzf pcre-${pcre_ver}.tar.gz
         echo "Download [${CMSG}openresty-${NEW_openresy_ver}.tar.gz${CEND}] successfully! "
         break
@@ -180,13 +173,11 @@ Upgrade_OpenResty() {
       char=`get_char`
     fi
     tar xzf openresty-${NEW_openresy_ver}.tar.gz
-    [ "${Fedora_ver}" == '28' ] && patch -d openresty-${openresty_ver}/bundle/nginx-${NEW_openresy_ver%.*} -p1 < 0001-unix-ngx_user-Apply-fix-for-really-old-bug-in-glibc-.patch
-    patch -d openresty-${openresty_ver}/bundle/nginx-${NEW_openresy_ver%.*} -p0 < nginx-auto-cc-gcc.patch
     pushd openresty-${NEW_openresy_ver}
     make clean
     sed -i 's@CFLAGS="$CFLAGS -g"@#CFLAGS="$CFLAGS -g"@' bundle/nginx-${NEW_openresy_ver%.*}/auto/cc/gcc # close debug
     ${openresty_install_dir}/nginx/sbin/nginx -V &> $$
-    ./configure --prefix=${openresty_install_dir} --user=${run_user} --group=${run_user} --with-http_stub_status_module --with-http_v2_module --with-http_ssl_module --with-http_gzip_static_module --with-http_realip_module --with-http_flv_module --with-http_mp4_module --with-openssl=../openssl-${openssl_ver} --with-pcre=../pcre-${pcre_ver} --with-pcre-jit --with-ld-opt='-ljemalloc' ${nginx_modules_options}
+    ./configure --prefix=${openresty_install_dir} --user=${run_user} --group=${run_user} --with-http_stub_status_module --with-http_v2_module --with-http_ssl_module --with-http_gzip_static_module --with-http_realip_module --with-http_flv_module --with-http_mp4_module --with-openssl=../openssl-${openssl11_ver} --with-pcre=../pcre-${pcre_ver} --with-pcre-jit --with-ld-opt='-ljemalloc' ${nginx_modules_options}
     make -j ${THREAD}
     if [ -f "build/nginx-${openresty_ver_tmp}/objs/nginx" ]; then
       /bin/mv ${openresty_install_dir}/nginx/sbin/nginx{,`date +%m%d`}
@@ -221,8 +212,6 @@ Upgrade_Apache() {
         if [ "${Apache_main_ver}" == '24' ]; then
           src_url=http://archive.apache.org/dist/apr/apr-${apr_ver}.tar.gz && Download_src
           src_url=http://archive.apache.org/dist/apr/apr-util-${apr_util_ver}.tar.gz && Download_src
-          tar xzf apr-${apr_ver}.tar.gz
-          tar xzf apr-util-${apr_util_ver}.tar.gz
         fi
         [ ! -e "httpd-${NEW_apache_ver}.tar.gz" ] && wget --no-check-certificate -c http://archive.apache.org/dist/httpd/httpd-${NEW_apache_ver}.tar.gz > /dev/null 2>&1
         if [ -e "httpd-${NEW_apache_ver}.tar.gz" ]; then
@@ -246,15 +235,32 @@ Upgrade_Apache() {
       echo "Press Ctrl+c to cancel or Press any key to continue..."
       char=`get_char`
     fi
+    if [ "${Apache_main_ver}" == '24' ]; then
+      # install apr
+      if [ ! -e "${apr_install_dir}/bin/apr-1-config" ]; then
+        tar xzf apr-${apr_ver}.tar.gz
+        pushd apr-${apr_ver} > /dev/null
+        ./configure --prefix=${apr_install_dir}
+        make -j ${THREAD} && make install
+        popd > /dev/null
+        rm -rf apr-${apr_ver}
+      fi
+      # install apr-util
+      if [ ! -e "${apr_install_dir}/bin/apu-1-config" ]; then
+        tar xzf apr-util-${apr_util_ver}.tar.gz
+        pushd apr-util-${apr_util_ver} > /dev/null
+        ./configure --prefix=${apr_install_dir} --with-apr=${apr_install_dir}
+        make -j ${THREAD} && make install
+        popd > /dev/null
+        rm -rf apr-util-${apr_util_ver}
+      fi
+    fi
     tar xzf httpd-${NEW_apache_ver}.tar.gz
     pushd httpd-${NEW_apache_ver}
     make clean
     if [ "${Apache_main_ver}" == '24' ]; then
-      /bin/cp -R ../apr-${apr_ver} ./srclib/apr
-      /bin/cp -R ../apr-util-${apr_util_ver} ./srclib/apr-util
-      LDFLAGS=-ldl ./configure --prefix=${apache_install_dir} --enable-mpms-shared=all --with-pcre --with-included-apr --enable-headers --enable-mime-magic --enable-deflate --enable-proxy --enable-so --enable-dav --enable-rewrite --enable-remoteip --enable-expires --enable-static-support --enable-suexec --enable-mods-shared=most --enable-nonportable-atomics=yes --enable-ssl --with-ssl=${openssl_install_dir} --enable-http2 --with-nghttp2=/usr/local
+      LDFLAGS=-ldl ./configure --prefix=${apache_install_dir} --enable-mpms-shared=all --with-pcre --with-apr=${apr_install_dir} --with-apr-util=${apr_install_dir} --enable-headers --enable-mime-magic --enable-deflate --enable-proxy --enable-so --enable-dav --enable-rewrite --enable-remoteip --enable-expires --enable-static-support --enable-suexec --enable-mods-shared=most --enable-nonportable-atomics=yes --enable-ssl --with-ssl=${openssl_install_dir} --enable-http2 --with-nghttp2=/usr/local
     elif [ "${Apache_main_ver}" == '22' ]; then
-      [ "${Ubuntu_ver}" == "12" ] && sed -i '@SSL_PROTOCOL_SSLV2@d' modules/ssl/ssl_engine_io.c
       LDFLAGS=-ldl ./configure --prefix=${apache_install_dir} --with-mpm=prefork --enable-mpms-shared=all --with-included-apr --enable-headers --enable-mime-magic --enable-deflate --enable-proxy --enable-so --enable-dav --enable-rewrite --enable-expires --enable-static-support --enable-suexec --with-expat=builtin --enable-mods-shared=most --enable-ssl --with-ssl=${openssl_install_dir}
     fi
     make -j ${THREAD}
@@ -266,7 +272,7 @@ Upgrade_Apache() {
       service httpd start
       popd > /dev/null
       echo "You have ${CMSG}successfully${CEND} upgrade from ${CWARNING}${OLD_apache_ver}${CEND} to ${CWARNING}${NEW_apache_ver}${CEND}"
-      rm -rf httpd-${NEW_apache_ver} apr-${apr_ver} apr-util-${apr_util_ver}
+      rm -rf httpd-${NEW_apache_ver}
     else
       echo "${CFAILURE}Upgrade Apache failed! ${CEND}"
     fi
